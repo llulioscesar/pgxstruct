@@ -21,13 +21,8 @@ var TagName = "sql"
 
 type fieldInfo map[string][]int
 
-func init()  {
+func init() {
 	finfos = make(map[reflect.Type]fieldInfo)
-}
-
-type Rows interface {
-	Scan(...interface{}) error
-	Columns() ([]string, error)
 }
 
 func getFieldInfo(typ reflect.Type) fieldInfo {
@@ -45,7 +40,7 @@ func getFieldInfo(typ reflect.Type) fieldInfo {
 		f := typ.Field(i)
 		tag := f.Tag.Get(TagName)
 
-		if f.PkgPath != "" || tag == "-"{
+		if f.PkgPath != "" || tag == "-" {
 			continue
 		}
 
@@ -68,11 +63,11 @@ func getFieldInfo(typ reflect.Type) fieldInfo {
 	return finfo
 }
 
-func Scan(dest interface{}, rows *pgx.Rows) error  {
+func Scan(dest interface{}, rows *pgx.Rows) error {
 	return doScan(dest, rows, "")
 }
 
-func ScanRow(dest interface{}, row *pgx.Row) error{
+func ScanRow(dest interface{}, row *pgx.Row) error {
 	return doScanRow(dest, row)
 }
 
@@ -110,7 +105,7 @@ func doScan(dest interface{}, rows *pgx.Rows, alias string) error {
 	destv := reflect.ValueOf(dest)
 	typ := destv.Type()
 
-	if typ.Kind() != reflect.Ptr || typ.Elem().Kind() != reflect.Struct{
+	if typ.Kind() != reflect.Ptr || typ.Elem().Kind() != reflect.Struct {
 		panic(fmt.Errorf("debe ser puntero a struct; tiene %T", destv))
 	}
 	fieldInfo := getFieldInfo(typ.Elem())
@@ -124,7 +119,7 @@ func doScan(dest interface{}, rows *pgx.Rows, alias string) error {
 
 	for _, name := range cols {
 		if len(alias) > 0 {
-			name.Name = strings.Replace(name.Name, alias + "_", "", 1)
+			name.Name = strings.Replace(name.Name, alias+"_", "", 1)
 		}
 		idx, ok := fieldInfo[strings.ToLower(name.Name)]
 		var v interface{}
@@ -135,14 +130,14 @@ func doScan(dest interface{}, rows *pgx.Rows, alias string) error {
 		}
 		values = append(values, v)
 	}
-	return  rows.Scan(values...)
+	return rows.Scan(values...)
 }
 
 func doScanRow(dest interface{}, row *pgx.Row) error {
 	destv := reflect.ValueOf(dest)
 	typ := destv.Type()
 
-	if typ.Kind() != reflect.Ptr || typ.Elem().Kind() != reflect.Struct{
+	if typ.Kind() != reflect.Ptr || typ.Elem().Kind() != reflect.Struct {
 		panic(fmt.Errorf("debe ser puntero a struct; tiene %T", destv))
 	}
 	fieldInfo := getFieldInfo(typ.Elem())
@@ -162,7 +157,7 @@ func doScanRow(dest interface{}, row *pgx.Row) error {
 		}
 		values = append(values, v)
 	}
-	return  row.Scan(values...)
+	return row.Scan(values...)
 }
 
 func ToSnakeCase(src string) string {
