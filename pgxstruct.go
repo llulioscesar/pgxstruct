@@ -2,7 +2,6 @@ package pgxstruct
 
 import (
 	"bytes"
-	"database/sql"
 	"fmt"
 	"github.com/jackc/pgx"
 	"log"
@@ -20,6 +19,10 @@ var finfoLock sync.RWMutex
 var TagName = "sql"
 
 type fieldInfo map[string][]int
+
+type RawBytes struct {
+	Null *[]byte
+}
 
 func init() {
 	finfos = make(map[reflect.Type]fieldInfo)
@@ -75,6 +78,10 @@ func ScanAliased(dest interface{}, rows *pgx.Rows, alias string) error {
 	return doScan(dest, rows, alias)
 }
 
+func ScanAlias(rows *pgx.Rows, alias []string, dest ...interface{}) error {
+	return doScanAlias(rows, alias, dest...)
+}
+
 func Columns(s interface{}) string {
 	return strings.Join(cols(s), ", ")
 }
@@ -101,6 +108,36 @@ func cols(s interface{}) []string {
 	return names
 }
 
+func doScanAlias(rows *pgx.Rows, alias []string, dest ...interface{}) error {
+	var values []interface{}
+	size := len(dest)
+	for i := 0; i < size; i++ {
+		destv := reflect.ValueOf(dest[i])
+		typ := destv.Type()
+
+		if typ.Kind() != reflect.Ptr || typ.Elem().Kind() != reflect.Struct {
+			log.Panicf("debe ser puntero a struct; tiene %T", destv)
+		}
+
+		fieldInfo := getFieldInfo(typ.Elem())
+		elem := destv.Elem()
+		cols := rows.FieldDescriptions()
+
+		for _, name := range cols {
+			if len(alias[i]) > 0 {
+				name.Name = strings.Replace(name.Name, alias[i]+"_", "", 1)
+			}
+			idx, ok := fieldInfo[strings.ToLower(name.Name)]
+			var v interface{}
+			if ok {
+				v = elem.FieldByIndex(idx).Addr().Interface()
+				values = append(values, v)
+			}
+		}
+	}
+	return rows.Scan(values...)
+}
+
 func doScan(dest interface{}, rows *pgx.Rows, alias string) error {
 	destv := reflect.ValueOf(dest)
 	typ := destv.Type()
@@ -115,8 +152,6 @@ func doScan(dest interface{}, rows *pgx.Rows, alias string) error {
 
 	cols := rows.FieldDescriptions()
 
-	log.Println(cols)
-
 	for _, name := range cols {
 		if len(alias) > 0 {
 			name.Name = strings.Replace(name.Name, alias+"_", "", 1)
@@ -124,7 +159,7 @@ func doScan(dest interface{}, rows *pgx.Rows, alias string) error {
 		idx, ok := fieldInfo[strings.ToLower(name.Name)]
 		var v interface{}
 		if !ok {
-			v = &sql.RawBytes{}
+			v = nil
 		} else {
 			v = elem.FieldByIndex(idx).Addr().Interface()
 		}
@@ -151,7 +186,7 @@ func doScanRow(dest interface{}, row *pgx.Row) error {
 		idx, ok := fieldInfo[strings.ToLower(name.Name)]
 		var v interface{}
 		if !ok {
-			v = &sql.RawBytes{}
+			v = nil
 		} else {
 			v = elem.FieldByIndex(idx).Addr().Interface()
 		}
