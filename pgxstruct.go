@@ -108,6 +108,10 @@ func cols(s interface{}) []string {
 	return names
 }
 
+func PrepareColumnsAlias(sql string, alias ...interface{}) string {
+	return fmt.Sprintf(sql, alias...)
+}
+
 func doScanAlias(rows *pgx.Rows, alias []string, dest ...interface{}) error {
 	var values []interface{}
 	size := len(dest)
@@ -143,7 +147,7 @@ func doScan(dest interface{}, rows *pgx.Rows, alias string) error {
 	typ := destv.Type()
 
 	if typ.Kind() != reflect.Ptr || typ.Elem().Kind() != reflect.Struct {
-		panic(fmt.Errorf("debe ser puntero a struct; tiene %T", destv))
+		panic(fmt.Errorf("debe ser puntero de tipo struct; tiene %T", destv))
 	}
 	fieldInfo := getFieldInfo(typ.Elem())
 
